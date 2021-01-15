@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Filters.ne;
+import static com.mongodb.client.model.Updates.set;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
@@ -64,7 +65,7 @@ public class UserDao extends AbstractMFlixDao {
      */
     public boolean addUser(User user) {
         //TODO > Ticket: Durable Writes -  you might want to use a more durable write concern here!
-        usersCollection.insertOne(user);
+        usersCollection.withWriteConcern(WriteConcern.MAJORITY).insertOne(user);
         return true;
         //TODO > Ticket: Handling Errors - make sure to only add new users
         // and not users that already exist.
@@ -80,7 +81,7 @@ public class UserDao extends AbstractMFlixDao {
      */
     public boolean createUserSession(String userId, String jwt) {
         Bson updateSession = Updates.combine(
-                Updates.set("jwt", jwt), Updates.setOnInsert("user_id", userId)
+                set("jwt", jwt), Updates.setOnInsert("user_id", userId)
         );
 
         UpdateOptions options = new UpdateOptions();
@@ -170,8 +171,18 @@ public class UserDao extends AbstractMFlixDao {
     public boolean updateUserPreferences(String email, Map<String, ?> userPreferences) {
         //TODO> Ticket: User Preferences - implement the method that allows for user preferences to
         // be updated.
+        if (userPreferences == null) {
+            throw new IncorrectDaoOperation("userPreferences can't be null");
+        }
+
+        Document preferences = new Document((Map<String, Object>) userPreferences);
+        Long count = usersCollection
+                .updateOne(eq("email", email), set("preferences", preferences))
+                .getModifiedCount();
+
+        return count > 0;
+
         //TODO > Ticket: Handling Errors - make this method more robust by
         // handling potential exceptions when updating an entry.
-        return false;
     }
 }

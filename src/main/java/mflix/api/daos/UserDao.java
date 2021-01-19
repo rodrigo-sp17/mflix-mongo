@@ -64,7 +64,6 @@ public class UserDao extends AbstractMFlixDao {
      * @return True if successful, throw IncorrectDaoOperation otherwise
      */
     public boolean addUser(User user) {
-        //TODO > Ticket: Durable Writes -  you might want to use a more durable write concern here!
         usersCollection.withWriteConcern(WriteConcern.MAJORITY).insertOne(user);
         return true;
         //TODO > Ticket: Handling Errors - make sure to only add new users
@@ -169,8 +168,6 @@ public class UserDao extends AbstractMFlixDao {
      * @return User object that just been updated.
      */
     public boolean updateUserPreferences(String email, Map<String, ?> userPreferences) {
-        //TODO> Ticket: User Preferences - implement the method that allows for user preferences to
-        // be updated.
         if (userPreferences == null) {
             throw new IncorrectDaoOperation("userPreferences can't be null");
         }

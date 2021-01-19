@@ -112,7 +112,11 @@ public class CommentDao extends AbstractMFlixDao {
             toInsert.put("date", new Date(comment.getDate().getTime()));
         }
 
-        commentCol.insertOne(toInsert);
+        try {
+            commentCol.insertOne(toInsert);
+        } catch (MongoWriteException e) {
+            log.error("Could not insert comment: " + e.getError().getCategory());
+        }
 
         Document inserted = commentCol.find(Filters.eq("_id", toInsert.get("_id")))
                 .first();
@@ -161,10 +165,15 @@ public class CommentDao extends AbstractMFlixDao {
         Bson newDate = Updates.set("date", new Date(System.currentTimeMillis()));
         Bson update = Updates.combine(newText, newDate);
 
-        Long modifiedCount = commentCollection
-                .updateOne(Filters.eq("_id", toEdit.getOid()),
-                        update)
-                .getModifiedCount();
+        Long modifiedCount = 0L;
+        try {
+            modifiedCount = commentCollection
+                    .updateOne(Filters.eq("_id", toEdit.getOid()),
+                            update)
+                    .getModifiedCount();
+        } catch (MongoWriteException e) {
+            log.error("Could not update comment: " + e.getError().getCategory());
+        }
 
         return modifiedCount > 0;
         // TODO> Ticket - Handling Errors: Implement a try catch block to
@@ -180,6 +189,7 @@ public class CommentDao extends AbstractMFlixDao {
      */
     public boolean deleteComment(String commentId, String email) {
         Bson query = Filters.eq("_id", new ObjectId(commentId));
+
         Comment toDelete = commentCollection.find(query).iterator().tryNext();
 
         if (toDelete == null) {
@@ -190,11 +200,14 @@ public class CommentDao extends AbstractMFlixDao {
             return false;
         }
 
-        DeleteResult result = commentCollection.deleteOne(query);
 
-        return result.getDeletedCount() == 1;
-
-
+        try {
+            DeleteResult result = commentCollection.deleteOne(query);
+            return result.getDeletedCount() == 1;
+        } catch (MongoWriteException e) {
+            log.error("Could not delete result: " + e.getError().getCategory());
+            return false;
+        }
         // TODO> Ticket Handling Errors - Implement a try catch block to
         // handle a potential write exception when given a wrong commentId.
     }

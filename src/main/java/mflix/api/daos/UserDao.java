@@ -64,11 +64,15 @@ public class UserDao extends AbstractMFlixDao {
      * @return True if successful, throw IncorrectDaoOperation otherwise
      */
     public boolean addUser(User user) {
-        usersCollection.withWriteConcern(WriteConcern.MAJORITY).insertOne(user);
-        return true;
+        try {
+            usersCollection.withWriteConcern(WriteConcern.MAJORITY).insertOne(user);
+            return true;
+        } catch (MongoWriteException e) {
+            log.error("Could not add user: " + e.getError().getCategory());
+            throw new IncorrectDaoOperation("User could not be inserted");
+        }
         //TODO > Ticket: Handling Errors - make sure to only add new users
         // and not users that already exist.
-
     }
 
     /**
@@ -87,6 +91,14 @@ public class UserDao extends AbstractMFlixDao {
         options.upsert(true);
 
         Bson query = Filters.eq("user_id", userId);
+
+        Session session = sessionsCollection.find(Filters.and(
+                Filters.eq("jwt", jwt),
+                Filters.eq("user_id", userId))).first();
+
+        if (session != null) {
+            return false;
+        }
 
         final UpdateResult result = sessionsCollection
                 .updateOne(query, updateSession, options);
@@ -152,9 +164,14 @@ public class UserDao extends AbstractMFlixDao {
         // remove user sessions
         deleteUserSessions(email);
 
-        User deleted = usersCollection.findOneAndDelete(new Document("email", email));
+        try {
+            User deleted = usersCollection.findOneAndDelete(new Document("email", email));
+            return deleted != null;
+        } catch (MongoWriteException e) {
+            log.error("Could not delete user: " + e.getError().getCategory());
+            return false;
+        }
 
-        return deleted != null;
         //TODO > Ticket: Handling Errors - make this method more robust by
         // handling potential exceptions.
     }
@@ -173,12 +190,16 @@ public class UserDao extends AbstractMFlixDao {
         }
 
         Document preferences = new Document((Map<String, Object>) userPreferences);
-        Long count = usersCollection
-                .updateOne(eq("email", email), set("preferences", preferences))
-                .getModifiedCount();
 
-        return count > 0;
-
+        try {
+            Long count = usersCollection
+                    .updateOne(eq("email", email), set("preferences", preferences))
+                    .getModifiedCount();
+            return count > 0;
+        } catch (MongoWriteException e) {
+            log.error("Could not update user preferences: " + e.getError().getCategory());
+            return false;
+        }
         //TODO > Ticket: Handling Errors - make this method more robust by
         // handling potential exceptions when updating an entry.
     }

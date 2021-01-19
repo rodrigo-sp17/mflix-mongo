@@ -1,5 +1,6 @@
 package mflix.api.daos;
 
+import com.mongodb.MongoException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.*;
@@ -48,6 +49,11 @@ public class MovieDao extends AbstractMFlixDao {
         //TODO> Ticket: Handling Errors - implement a way to catch a
         //any potential exceptions thrown while validating a movie id.
         //Check out this method's use in the method that follows.
+        try {
+            moviesCollection.find(Filters.eq("_id", new ObjectId(movieId))).first();
+        } catch (MongoException | IllegalArgumentException e) {
+            return false;
+        }
         return true;
     }
 
@@ -67,8 +73,6 @@ public class MovieDao extends AbstractMFlixDao {
         // match stage to find movie
         Bson match = Aggregates.match(Filters.eq("_id", new ObjectId(movieId)));
         pipeline.add(match);
-        // TODO> Ticket: Get Comments - implement the lookup stage that allows the comments to
-        // retrieved with Movies.
 
         pipeline.add(new Document("$lookup",
                         new Document("from", "comments")
